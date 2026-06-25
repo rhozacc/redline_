@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { C, MONO, SANS, CTX_SNAP_POINTS, CTX_SNAP_RADIUS } from "./constants.js";
+import { C, MONO, SANS, DISPLAY, CTX_SNAP_POINTS, CTX_SNAP_RADIUS } from "./constants.js";
 
 /* ------------------------------------------------------------------ */
 /*  Panel                                                              */
@@ -334,6 +334,77 @@ export function Gauge({ label, total, ceiling, scaleMax, segs }) {
           }}
         />
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  StackBar — borderless segmented bar with a redline tick           */
+/* ------------------------------------------------------------------ */
+export function StackBar({ label, total, segs, ceiling, scaleMax }) {
+  const pct = (v) => `${Math.min(100, (v / scaleMax) * 100)}%`;
+  const ceilLeft = `${Math.min(100, (ceiling / scaleMax) * 100)}%`;
+  const over = total > ceiling;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.muted, letterSpacing: 0.5 }}>{label}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: over ? C.oom : C.text, transition: "color 0.3s" }}>
+          <AnimatedNumber value={total} fmt={(v) => (v < 10 ? v.toFixed(2) : v.toFixed(1))} /> GB
+        </span>
+      </div>
+      <div style={{ position: "relative", height: 9, display: "flex", borderRadius: 99, overflow: "hidden", background: C.panel2 }}>
+        {segs.map((s, i) => (
+          <div key={i} style={{
+            width: pct(s.w), height: "100%", background: s.color, flexShrink: 0,
+            backgroundImage: s.hatch ? `repeating-linear-gradient(45deg, ${s.color} 0 4px, #8a4d20 4px 8px)` : "none",
+            transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          }} />
+        ))}
+        <div style={{
+          position: "absolute", top: -3, bottom: -3, left: ceilLeft, width: 2,
+          background: over ? C.oom : C.ceiling, boxShadow: `0 0 6px ${over ? C.oom : C.ceiling}`,
+          transition: "left 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s",
+        }} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  BigReadout — borderless stat, large display numeral               */
+/* ------------------------------------------------------------------ */
+export function BigReadout({ label, value, unit, ok, sub, accent }) {
+  const col = ok ? (accent || C.text) : C.oom;
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: C.muted, fontFamily: MONO, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 600, color: col, lineHeight: 1, letterSpacing: -0.5, transition: "color 0.3s ease" }}>
+        {value}
+        <span style={{ fontSize: 12, color: C.faint, marginLeft: 4, fontWeight: 400, fontFamily: MONO }}>{unit}</span>
+      </div>
+      <div style={{ fontSize: 10.5, color: ok ? C.faint : C.oom, marginTop: 6, transition: "color 0.3s ease" }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SectionTag — numbered datasheet section header                    */
+/* ------------------------------------------------------------------ */
+export function SectionTag({ n, children, accent }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <span style={{ fontFamily: DISPLAY, fontSize: 11, fontWeight: 700, color: accent || C.faint, letterSpacing: 1 }}>
+        {n}
+      </span>
+      <span style={{ width: 14, height: 1, background: C.line }} />
+      <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, letterSpacing: 2.5, textTransform: "uppercase" }}>
+        {children}
+      </span>
     </div>
   );
 }
