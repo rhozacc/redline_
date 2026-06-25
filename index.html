@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redline — Local LLM Memory Budget</title>
+    <meta name="description" content="Visualize unified memory pressure for Apple Silicon local inference. Watch KV cache eat your headroom as context grows." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body { background: #0B0D10; }
+      #root { min-height: 100vh; }
+
+      /* range input cross-browser */
+      input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; outline: none; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; cursor: pointer; }
+      input[type=number] { -moz-appearance: textfield; }
+      input[type=number]::-webkit-outer-spin-button,
+      input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+      /* snap pulse */
+      @keyframes snapPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(201,148,46,0.6); }
+        70%  { box-shadow: 0 0 0 8px rgba(201,148,46,0); }
+        100% { box-shadow: 0 0 0 0 rgba(201,148,46,0); }
+      }
+      .snap-pulse { animation: snapPulse 0.4s ease-out; }
+
+      /* fade-in for search results */
+      @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .fade-slide-in { animation: fadeSlideIn 0.18s ease-out forwards; }
+
+      /* gauge fill */
+      @keyframes gaugeGrow {
+        from { width: 0%; }
+      }
+
+      /* spinner */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .spin { animation: spin 0.8s linear infinite; }
+
+      /* status dot pulse */
+      @keyframes dotGlow {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.4; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
