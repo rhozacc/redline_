@@ -37,7 +37,7 @@ export const RAM_OPTIONS = [16, 24, 32, 48, 64, 96, 128];
 
 // Common context sizes that slider should snap to
 export const CTX_SNAP_POINTS = [
-  1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144,
+  1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576,
 ];
 // Snap radius in tokens — if within this distance, snap
 export const CTX_SNAP_RADIUS = 0.04; // fraction of total range

@@ -13,7 +13,10 @@ import useHFModel from "./useHFModel.js";
 
 /* ------------------------------------------------------------------ */
 const gb  = (n) => (n < 10 ? n.toFixed(2) : n.toFixed(1));
-const ktok = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(Math.round(n)));
+const ktok = (n) =>
+  n >= 1000000 ? (n / 1000000).toFixed(n >= 10000000 ? 0 : 1).replace(/\.0$/, "") + "M"
+  : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k"
+  : String(Math.round(n));
 const commas = (n) => Math.round(n).toLocaleString("en-US");
 
 /* ================================================================== */
@@ -119,7 +122,7 @@ export default function App() {
     if (data.kvH)         setKvH(data.kvH);
     if (data.headDim)     setHeadDim(data.headDim);
     if (data.contextLength) {
-      const ctx = Math.min(data.contextLength, 262144);
+      const ctx = Math.min(data.contextLength, 1048576);
       setContext(ctx);
     }
     if (data.activeParams) setActive(+data.activeParams.toFixed(2));
@@ -301,22 +304,30 @@ export default function App() {
                 unit="tokens"
                 value={context}
                 min={1024}
-                max={262144}
+                max={1048576}
                 step={512}
+                log
                 onChange={setContext}
                 accent={C.kv}
                 fmt={(v) => commas(v)}
                 snapPoints={CTX_SNAP_POINTS}
               />
-              {/* snap labels row */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, paddingTop: 4 }}>
-                {[4096, 16384, 32768, 65536, 131072].map(p => {
+              {/* snap labels row — positioned to line up with the slider scale */}
+              <div style={{ position: "relative", height: 18, marginTop: 20, paddingTop: 4 }}>
+                {[1024, 4096, 16384, 65536, 262144, 1048576].map(p => {
                   const isActive = context === p;
+                  const pos = (Math.log(p / 1024) / Math.log(1048576 / 1024)) * 100;
+                  // keep the first/last labels from clipping the panel edges
+                  const shift = pos <= 0 ? "0" : pos >= 100 ? "-100%" : "-50%";
                   return (
                     <button
                       key={p}
                       onClick={() => setContext(p)}
                       style={{
+                        position: "absolute",
+                        left: `${pos}%`,
+                        transform: `translateX(${shift})`,
+                        whiteSpace: "nowrap",
                         fontFamily: MONO,
                         fontSize: 9.5,
                         color: isActive ? C.kv : C.faint,
