@@ -1,6 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { C, MONO, SANS, DISPLAY } from "./constants.js";
 import { EXPLAINERS } from "./explainers.js";
+
+/* markdown → styled elements matching the dark explainer card */
+export const MD_COMPONENTS = {
+  p:      ({ node, ...p }) => <p style={{ margin: "10px 0 0", lineHeight: 1.65 }} {...p} />,
+  strong: ({ node, ...p }) => <strong style={{ color: C.text, fontWeight: 600 }} {...p} />,
+  h3:     ({ node, ...p }) => <h4 style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase", color: C.muted, margin: "18px 0 2px" }} {...p} />,
+  h4:     ({ node, ...p }) => <h4 style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase", color: C.muted, margin: "18px 0 2px" }} {...p} />,
+  ul:     ({ node, ...p }) => <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.6 }} {...p} />,
+  li:     ({ node, ...p }) => <li style={{ margin: "4px 0" }} {...p} />,
+  code:   ({ node, ...p }) => <code style={{ fontFamily: MONO, fontSize: 12, color: C.kv, background: "rgba(201,148,46,0.10)", padding: "1px 5px", borderRadius: 4 }} {...p} />,
+  a:      ({ node, ...p }) => <a style={{ color: C.weights }} target="_blank" rel="noopener noreferrer" {...p} />,
+  blockquote: ({ node, ...p }) => <blockquote style={{ margin: "12px 0 0", paddingLeft: 12, borderLeft: `2px solid ${C.line}`, color: C.faint, fontSize: 12.5 }} {...p} />,
+  table:  ({ node, ...p }) => <table style={{ width: "100%", borderCollapse: "collapse", margin: "12px 0 0", fontSize: 12.5 }} {...p} />,
+  th:     ({ node, ...p }) => <th style={{ textAlign: "left", padding: "5px 8px", borderBottom: `1px solid ${C.line}`, color: C.muted, fontFamily: MONO, fontWeight: 500 }} {...p} />,
+  td:     ({ node, ...p }) => <td style={{ padding: "5px 8px", borderBottom: `1px solid ${C.line}11` }} {...p} />,
+};
 
 const Ctx = createContext(() => {});
 export const useExplain = () => useContext(Ctx);
@@ -53,10 +70,8 @@ export function ExplainerProvider({ children }) {
                 }}
               >✕</button>
             </div>
-            <div style={{ marginTop: 14, fontFamily: SANS, fontSize: 13.5, color: C.muted, lineHeight: 1.65 }}>
-              {(Array.isArray(item.body) ? item.body : [item.body]).map((p, i) => (
-                <p key={i} style={{ marginTop: i ? 12 : 0 }}>{p}</p>
-              ))}
+            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 13.5, color: C.muted, lineHeight: 1.65, maxHeight: "62vh", overflowY: "auto" }}>
+              <ReactMarkdown components={MD_COMPONENTS}>{item.body}</ReactMarkdown>
             </div>
           </div>
         </div>

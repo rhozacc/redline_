@@ -21,19 +21,17 @@
       .bg-scrim { position: fixed; inset: 0; z-index: 0; pointer-events: none;
         background: radial-gradient(120% 95% at 50% 35%, rgba(7,8,11,0.05), rgba(7,8,11,0.50) 92%); }
 
-      /* frosted-glass slab: blurs the particles behind the content so text stays legible.
-         Sits BEHIND the text (z-index:-1 inside the content stacking context) but in front
-         of the particle field. Edges feathered so it melts into the field, not a hard card. */
-      .content-frost {
-        position: absolute; inset: -28px -22px; z-index: -1; pointer-events: none;
-        background: rgba(8,10,14,0.55);
-        -webkit-backdrop-filter: blur(16px) saturate(118%);
-                backdrop-filter: blur(16px) saturate(118%);
-        border-radius: 22px;
-        -webkit-mask-image: radial-gradient(118% 108% at 50% 46%, #000 72%, transparent 100%);
-                mask-image: radial-gradient(118% 108% at 50% 46%, #000 72%, transparent 100%);
-      }
       ::selection { background: rgba(210,59,59,0.30); }
+
+      /* frosted blur behind main content (not the title) — fades in at the top edge */
+      .content-frost {
+        position: absolute; inset: 0; z-index: -1; pointer-events: none;
+        background: rgba(8,10,14,0.5);
+        -webkit-backdrop-filter: blur(14px) saturate(115%);
+                backdrop-filter: blur(14px) saturate(115%);
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 56px);
+                mask-image: linear-gradient(to bottom, transparent 0, #000 56px);
+      }
 
       /* range input cross-browser */
       input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; outline: none; }
@@ -105,6 +103,22 @@
         0%, 100% { opacity: 1; }
         50%       { opacity: 0.4; }
       }
+
+      /* verdict callout on the 3D marker — blends in (40% opaque), pops on hover */
+      .marker-callout { opacity: 0.4; transition: opacity 0.22s ease; }
+      .marker-callout:hover { opacity: 1; }
+
+      /* prefill bar alarm — flashes + swells when peak clears the redline */
+      @keyframes prefillAlert {
+        0%, 100% { transform: scaleY(1);   box-shadow: 0 0 0 0 rgba(210,59,59,0);    filter: brightness(1); }
+        50%      { transform: scaleY(1.7); box-shadow: 0 0 16px 2px rgba(210,59,59,0.6); filter: brightness(1.4); }
+      }
+      .prefill-alert { animation: prefillAlert 0.8s ease-in-out infinite; will-change: transform, box-shadow, filter; }
+
+      /* subtle hover lift for chip/preset/select controls */
+      .hover-lift { transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.15s, background 0.15s, color 0.15s; }
+      .hover-lift:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(0,0,0,0.35); }
+      .hover-lift:active { transform: translateY(0); box-shadow: none; }
     </style>
   </head>
   <body>

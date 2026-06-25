@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
+import React, { useMemo, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Line, Html } from "@react-three/drei";
 import * as THREE from "three";
-import { C, MONO, DISPLAY } from "./constants.js";
+import { C, MONO, SANS, DISPLAY } from "./constants.js";
 
 /* ── surface domain ──────────────────────────────────────────────── */
 const NX = 64, NY = 46;             // grid resolution (context × depth)
@@ -38,7 +38,7 @@ function ramp(r) {
   return stops[stops.length - 1][1];
 }
 
-function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, params, depthAxis }) {
+function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, params, depthAxis, verdict }) {
   /* depth axis = model size (params) OR quantization (bpw) */
   const isQuant = depthAxis === "quant";
   const DMIN = isQuant ? 4.25 : 0.5;
@@ -106,13 +106,43 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
     return pts;
   }, [bpw, params, overhead, scratch, kvPerTokGB, ceiling, depthAxis]);
 
+  // gentle "live" bob of the redline plane — slow and barely-there
+  const redlineRef = useRef(null);
+  const glintRef = useRef(null);
+  const ribRefs = useRef({});
+  useFrame(({ clock }, dt) => {
+    const t = clock.elapsedTime;
+    if (redlineRef.current) {
+      redlineRef.current.position.y = Math.sin(t * (Math.PI * 2 / 1.6)) * (planeY * 0.012);
+    }
+    // very subtle travelling shimmer along the frontier
+    if (glintRef.current?.material) {
+      glintRef.current.material.dashOffset -= dt * 0.9;
+      glintRef.current.material.opacity = 0.28 + 0.14 * Math.sin(t * 2.2);
+    }
+    // let the shimmer "bleed" into the rib lines — same pulse, phase-staggered
+    let i = 0;
+    for (const key in ribRefs.current) {
+      const el = ribRefs.current[key];
+      if (el?.material) el.material.opacity = 0.6 + 0.08 * Math.sin(t * 2.2 - i * 0.6);
+      i++;
+    }
+  });
+
   // current operating point
   const mx = xOf(Math.max(CTX_MIN, Math.min(CTX_MAX, context)));
   const mz = zOf(Math.max(DMIN, Math.min(DMAX, curDepth)));
   const cur = mem(context, curDepth);
   const my = hOf(cur);
   const over = cur > ceiling;
-  const dot = over ? C.oom : C.ok;
+  const dot = verdict
+    ? (verdict.state === "green" ? C.ok : verdict.state === "amber" ? C.warn : C.oom)
+    : (over ? C.oom : C.ok);
+  // split the verdict into a headline (first sentence) + the actionable rest,
+  // so the callout never repeats the verdict word
+  const vMsg = verdict?.msg || "";
+  const vHead = vMsg.split(/(?<=\.)\s+/)[0] || vMsg;
+  const vBody = vMsg.slice(vHead.length).trim();
 
   return (
     <>
@@ -125,19 +155,22 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
         <meshBasicMaterial wireframe color="#05070A" transparent opacity={0.12} />
       </mesh>
 
-      {/* redline plane */}
-      <mesh rotation-x={-Math.PI / 2} position-y={planeY}>
-        <planeGeometry args={[W * 1.08, D * 1.08]} />
-        <meshBasicMaterial color={C.oom} transparent opacity={0.14} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-
-      {/* red frontier — surface ∩ redline plane */}
-      {frontier.length > 1 && (
-        <Line points={frontier} color={C.oom} lineWidth={2.6} transparent opacity={0.95} />
-      )}
-
-      {/* floor grid */}
-      <gridHelper args={[W * 1.08, 12, C.line, C.line]} position-y={0} />
+      {/* redline group — plane + frontier bob together so they stay coincident */}
+      <group ref={redlineRef}>
+        <mesh rotation-x={-Math.PI / 2} position-y={planeY}>
+          <planeGeometry args={[W * 1.08, D * 1.08]} />
+          <meshBasicMaterial color={C.oom} transparent opacity={0.14} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        {/* red frontier — surface ∩ redline plane */}
+        {frontier.length > 1 && (
+          <>
+            <Line points={frontier} color={C.oom} lineWidth={2.6} transparent opacity={0.95} />
+            {/* subtle travelling shimmer riding the frontier */}
+            <Line ref={glintRef} points={frontier} color="#FF9E9E" lineWidth={1.6}
+              dashed dashSize={0.45} gapSize={1.8} transparent opacity={0.3} />
+          </>
+        )}
+      </group>
 
       {/* operating-point marker */}
       <Line points={[[mx, 0, mz], [mx, my, mz]]} color={dot} lineWidth={1.5} dashed dashScale={3} />
@@ -145,6 +178,29 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
         <sphereGeometry args={[0.17, 20, 20]} />
         <meshStandardMaterial color={dot} emissive={dot} emissiveIntensity={0.9} />
       </mesh>
+      {/* verdict callout pinned to the marker (replaces the old banner) */}
+      {vMsg && (
+        <Html position={[mx, my, mz]} zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
+          <div className="marker-callout" style={{
+            transform: "translate(16px, -118%)", width: 198, pointerEvents: "auto",
+            background: "rgba(12,15,20,0.5)", border: `1px solid ${dot}33`, borderLeft: `2px solid ${dot}`,
+            borderRadius: 9, padding: "9px 11px",
+            WebkitBackdropFilter: "blur(3px)", backdropFilter: "blur(3px)",
+          }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 7, background: dot, boxShadow: `0 0 8px ${dot}`, flexShrink: 0, transform: "translateY(1px)" }} />
+              <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 13, color: dot, lineHeight: 1.25 }}>
+                {vHead}
+              </span>
+            </div>
+            {vBody && (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: "#C9CDD4", marginTop: 5, lineHeight: 1.45 }}>
+                {vBody}
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
 
       {/* popular context ribs — constant context, swept across the depth axis */}
       {POP_CTX.map((c) => {
@@ -155,7 +211,7 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
         });
         return (
           <React.Fragment key={"cr" + c}>
-            <Line points={pts} color={C.kv} lineWidth={1.3} transparent opacity={0.6} />
+            <Line ref={(el) => { if (el) ribRefs.current["c" + c] = el; }} points={pts} color={C.kv} lineWidth={1.3} transparent opacity={0.6} />
             <Html position={[x, yOf(c, DMAX) + 0.18, zOf(DMAX) + 0.2]} center distanceFactor={13} style={ribS(C.kv)}>
               {ktok(c)}
             </Html>
@@ -171,7 +227,7 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
         });
         return (
           <React.Fragment key={"dr" + r.v}>
-            <Line points={pts} color={C.weights} lineWidth={1.3} transparent opacity={0.6} />
+            <Line ref={(el) => { if (el) ribRefs.current["d" + r.v] = el; }} points={pts} color={C.weights} lineWidth={1.3} transparent opacity={0.6} />
             <Html position={[xOf(CTX_MAX) + 0.25, yOf(CTX_MAX, r.v) + 0.18, z]} center distanceFactor={13} style={ribS(C.weights)}>
               {r.l}
             </Html>
@@ -211,8 +267,10 @@ export default function Surface(props) {
   const slopeK = props.depthAxis === "quant" ? props.params / 8 : props.bpw / 8;
   const over = cur * slopeK + props.overhead + props.kvPerTokGB * props.context + props.scratch > props.ceiling;
   return (
-    <div style={{ position: "relative", width: "100%", height: props.height || 380, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.line}`, background: "#070A0E" }}>
-      <Canvas camera={{ position: [11, 9.5, 12.5], fov: 36 }} dpr={[1, 2]} gl={{ antialias: true }}>
+    <div style={{ position: "relative", width: "100%", height: props.height || 380, zIndex: 30 }}>
+      {/* canvas spills past the slot and the whole plot sits above neighbours */}
+      <div style={{ position: "absolute", inset: "0 -30px -30px -30px" }}>
+      <Canvas camera={{ position: [11, 9.5, 12.5], fov: 36 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }} style={{ width: "100%", height: "100%", overflow: "visible" }}>
         <ambientLight intensity={0.75} />
         <directionalLight position={[6, 13, 8]} intensity={0.95} />
         <pointLight position={[-9, 6, -7]} color={C.kv} intensity={0.45} />
@@ -227,6 +285,7 @@ export default function Surface(props) {
           target={[0, 0.4, 0]} enableDamping dampingFactor={0.08}
         />
       </Canvas>
+      </div>
 
       {/* overlay legend + hint */}
       <div style={{ position: "absolute", left: 12, top: 12, display: "flex", alignItems: "center", gap: 8, pointerEvents: "none" }}>

@@ -1,0 +1,121 @@
+{
+  "source": [
+    "https://en.wikipedia.org/wiki/Apple_M1",
+    "https://en.wikipedia.org/wiki/Apple_M2",
+    "https://en.wikipedia.org/wiki/Apple_M3",
+    "https://en.wikipedia.org/wiki/Apple_M4",
+    "https://en.wikipedia.org/wiki/Apple_M5"
+  ],
+  "fetchedAt": "2026-06-25",
+  "note": "bandwidth (bw, GB/s) scraped from Wikipedia variant tables. tflops are community fp16 estimates — Apple does not publish them.",
+  "chips": [
+    {
+      "name": "M1",
+      "bw": 68,
+      "tflops": 2.6,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M1 Pro",
+      "bw": 205,
+      "tflops": 5.2,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M1 Max",
+      "bw": 410,
+      "tflops": 10.4,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M1 Ultra",
+      "bw": 819,
+      "tflops": 21,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M2",
+      "bw": 102,
+      "tflops": 3.6,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M2 Pro",
+      "bw": 205,
+      "tflops": 6.8,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M2 Max",
+      "bw": 410,
+      "tflops": 13.6,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M2 Ultra",
+      "bw": 819,
+      "tflops": 27,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M3",
+      "bw": 102,
+      "tflops": 4.1,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M3 Pro",
+      "bw": 154,
+      "tflops": 7,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M3 Max",
+      "bw": 410,
+      "tflops": 14,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M3 Ultra",
+      "bw": 819,
+      "tflops": 28,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M4",
+      "bw": 120,
+      "tflops": 8.5,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M4 Pro",
+      "bw": 273,
+      "tflops": 17,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M4 Max",
+      "bw": 546,
+      "tflops": 34,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M5",
+      "bw": 154,
+      "tflops": 10,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M5 Pro",
+      "bw": 307,
+      "tflops": 20,
+      "tflopsEstimated": true
+    },
+    {
+      "name": "M5 Max",
+      "bw": 614,
+      "tflops": 42,
+      "tflopsEstimated": true
+    }
+  ]
+}
