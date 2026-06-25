@@ -7,19 +7,74 @@
     <meta name="description" content="Visualize unified memory pressure for Apple Silicon local inference. Watch KV cache eat your headroom as context grows." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { height: 100%; }
-      body { background: #0B0D10; }
+      body {
+        background:
+          radial-gradient(130% 90% at 50% -20%, #11161D, #07080B 70%);
+        background-attachment: fixed;
+      }
       #root { min-height: 100vh; }
+      /* light global vignette — keeps the particle glow alive in the margins */
+      .bg-scrim { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background: radial-gradient(120% 95% at 50% 35%, rgba(7,8,11,0.05), rgba(7,8,11,0.50) 92%); }
+
+      /* frosted-glass slab: blurs the particles behind the content so text stays legible.
+         Sits BEHIND the text (z-index:-1 inside the content stacking context) but in front
+         of the particle field. Edges feathered so it melts into the field, not a hard card. */
+      .content-frost {
+        position: absolute; inset: -28px -22px; z-index: -1; pointer-events: none;
+        background: rgba(8,10,14,0.55);
+        -webkit-backdrop-filter: blur(16px) saturate(118%);
+                backdrop-filter: blur(16px) saturate(118%);
+        border-radius: 22px;
+        -webkit-mask-image: radial-gradient(118% 108% at 50% 46%, #000 72%, transparent 100%);
+                mask-image: radial-gradient(118% 108% at 50% 46%, #000 72%, transparent 100%);
+      }
+      ::selection { background: rgba(210,59,59,0.30); }
 
       /* range input cross-browser */
       input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; outline: none; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; cursor: pointer; }
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+        cursor: pointer; background: #E6E9ED;
+        border: 2px solid #0B0D10;
+        box-shadow: 0 0 0 1px rgba(230,233,237,0.4), 0 1px 4px rgba(0,0,0,0.5);
+        transition: box-shadow 0.15s, transform 0.1s;
+      }
+      input[type=range]::-webkit-slider-thumb:active { transform: scale(1.15); }
+      input[type=range]::-moz-range-thumb {
+        width: 15px; height: 15px; border-radius: 50%; cursor: pointer;
+        background: #E6E9ED; border: 2px solid #0B0D10;
+      }
       input[type=number] { -moz-appearance: textfield; }
       input[type=number]::-webkit-outer-spin-button,
       input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+      /* staggered section reveal on load */
+      @keyframes riseIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .reveal { opacity: 0; animation: riseIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+      /* explainer modal entrance */
+      @keyframes explainFade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes explainPop {
+        from { opacity: 0; transform: translateY(12px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .explain-backdrop { animation: explainFade 0.16s ease-out both; }
+      .explain-card { animation: explainPop 0.26s cubic-bezier(0.22,1,0.36,1) both; }
+
+      /* footprint expand-to-full-width: grows in, pushing the columns down */
+      @keyframes bandGrow {
+        from { max-height: 0; opacity: 0; transform: translateY(-8px); }
+        to   { max-height: 860px; opacity: 1; transform: translateY(0); }
+      }
+      .expand-band { overflow: hidden; animation: bandGrow 0.46s cubic-bezier(0.22,1,0.36,1) both; }
 
       /* snap pulse */
       @keyframes snapPulse {

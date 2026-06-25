@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { C, MONO, SANS, CTX_SNAP_POINTS, CTX_SNAP_RADIUS } from "./constants.js";
+import { C, MONO, SANS, DISPLAY, CTX_SNAP_POINTS, CTX_SNAP_RADIUS } from "./constants.js";
 
 /* ------------------------------------------------------------------ */
 /*  Panel                                                              */
@@ -56,19 +56,35 @@ export function AnimatedNumber({ value, fmt }) {
 /* ------------------------------------------------------------------ */
 /*  Slider with snap                                                   */
 /* ------------------------------------------------------------------ */
-export function Slider({ label, unit, value, min, max, step, onChange, accent, fmt, snapPoints }) {
+export function Slider({ label, unit, value, min, max, step, onChange, accent, fmt, snapPoints, log }) {
   const [snapping, setSnapping] = useState(false);
   const snapTimerRef = useRef(null);
 
+  // Map real value <-> normalized 0..1 track position. Snap distances are
+  // measured in position space so they feel uniform on both scales.
+  const toPos = useCallback((v) =>
+    log ? Math.log(v / min) / Math.log(max / min) : (v - min) / (max - min),
+  [log, min, max]);
+  const fromPos = useCallback((p) =>
+    log ? min * Math.pow(max / min, p) : min + p * (max - min),
+  [log, min, max]);
+
   const handleChange = useCallback((e) => {
-    let v = parseFloat(e.target.value);
+    let v;
+    if (log) {
+      v = fromPos(parseFloat(e.target.value));
+      // round to a clean granularity that scales with magnitude
+      const gran = v >= 65536 ? 1024 : v >= 8192 ? 256 : v >= 1024 ? 64 : 16;
+      v = Math.min(max, Math.max(min, Math.round(v / gran) * gran));
+    } else {
+      v = parseFloat(e.target.value);
+    }
     if (snapPoints) {
-      const range = max - min;
-      const radius = range * CTX_SNAP_RADIUS;
+      const vPos = toPos(v);
       const nearest = snapPoints.reduce((a, b) =>
-        Math.abs(b - v) < Math.abs(a - v) ? b : a
+        Math.abs(toPos(b) - vPos) < Math.abs(toPos(a) - vPos) ? b : a
       );
-      if (Math.abs(nearest - v) < radius && nearest >= min && nearest <= max) {
+      if (Math.abs(toPos(nearest) - vPos) < CTX_SNAP_RADIUS && nearest >= min && nearest <= max) {
         if (v !== nearest) {
           setSnapping(true);
           clearTimeout(snapTimerRef.current);
@@ -78,9 +94,9 @@ export function Slider({ label, unit, value, min, max, step, onChange, accent, f
       }
     }
     onChange(v);
-  }, [onChange, snapPoints, min, max]);
+  }, [onChange, snapPoints, min, max, log, fromPos, toPos]);
 
-  const pct = ((value - min) / (max - min)) * 100;
+  const pct = toPos(value) * 100;
 
   return (
     <div>
@@ -103,10 +119,10 @@ export function Slider({ label, unit, value, min, max, step, onChange, accent, f
       <div style={{ position: "relative" }}>
         <input
           type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
+          min={log ? 0 : min}
+          max={log ? 1 : max}
+          step={log ? 0.0001 : step}
+          value={log ? toPos(value) : value}
           onChange={handleChange}
           className={snapping ? "snap-pulse" : ""}
           style={{
@@ -124,8 +140,8 @@ export function Slider({ label, unit, value, min, max, step, onChange, accent, f
             {snapPoints
               .filter(p => p >= min && p <= max)
               .map(p => {
-                const pos = ((p - min) / (max - min)) * 100;
-                const isNear = Math.abs(p - value) < (max - min) * CTX_SNAP_RADIUS * 2;
+                const pos = toPos(p) * 100;
+                const isNear = Math.abs(toPos(p) - toPos(value)) < CTX_SNAP_RADIUS * 2;
                 return (
                   <div
                     key={p}
@@ -323,6 +339,77 @@ export function Gauge({ label, total, ceiling, scaleMax, segs }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  StackBar — borderless segmented bar with a redline tick           */
+/* ------------------------------------------------------------------ */
+export function StackBar({ label, total, segs, ceiling, scaleMax }) {
+  const pct = (v) => `${Math.min(100, (v / scaleMax) * 100)}%`;
+  const ceilLeft = `${Math.min(100, (ceiling / scaleMax) * 100)}%`;
+  const over = total > ceiling;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.muted, letterSpacing: 0.5 }}>{label}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: over ? C.oom : C.text, transition: "color 0.3s" }}>
+          <AnimatedNumber value={total} fmt={(v) => (v < 10 ? v.toFixed(2) : v.toFixed(1))} /> GB
+        </span>
+      </div>
+      <div style={{ position: "relative", height: 9, display: "flex", borderRadius: 99, overflow: "hidden", background: C.panel2 }}>
+        {segs.map((s, i) => (
+          <div key={i} style={{
+            width: pct(s.w), height: "100%", background: s.color, flexShrink: 0,
+            backgroundImage: s.hatch ? `repeating-linear-gradient(45deg, ${s.color} 0 4px, #8a4d20 4px 8px)` : "none",
+            transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          }} />
+        ))}
+        <div style={{
+          position: "absolute", top: -3, bottom: -3, left: ceilLeft, width: 2,
+          background: over ? C.oom : C.ceiling, boxShadow: `0 0 6px ${over ? C.oom : C.ceiling}`,
+          transition: "left 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s",
+        }} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  BigReadout — borderless stat, large display numeral               */
+/* ------------------------------------------------------------------ */
+export function BigReadout({ label, value, unit, ok, sub, accent }) {
+  const col = ok ? (accent || C.text) : C.oom;
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: C.muted, fontFamily: MONO, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 600, color: col, lineHeight: 1, letterSpacing: -0.5, transition: "color 0.3s ease" }}>
+        {value}
+        <span style={{ fontSize: 12, color: C.faint, marginLeft: 4, fontWeight: 400, fontFamily: MONO }}>{unit}</span>
+      </div>
+      <div style={{ fontSize: 10.5, color: ok ? C.faint : C.oom, marginTop: 6, transition: "color 0.3s ease" }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SectionTag — numbered datasheet section header                    */
+/* ------------------------------------------------------------------ */
+export function SectionTag({ n, children, accent }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <span style={{ fontFamily: DISPLAY, fontSize: 11, fontWeight: 700, color: accent || C.faint, letterSpacing: 1 }}>
+        {n}
+      </span>
+      <span style={{ width: 14, height: 1, background: C.line }} />
+      <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, letterSpacing: 2.5, textTransform: "uppercase" }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Key                                                                */
 /* ------------------------------------------------------------------ */
 export function Key({ color, label, v, hatch }) {
@@ -397,7 +484,10 @@ export function Stat({ label, value, unit, ok, sub, accent }) {
 /* ------------------------------------------------------------------ */
 /*  Tooltip for chart                                                  */
 /* ------------------------------------------------------------------ */
-const ktok = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(Math.round(n)));
+const ktok = (n) =>
+  n >= 1000000 ? (n / 1000000).toFixed(n >= 10000000 ? 0 : 1).replace(/\.0$/, "") + "M"
+  : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k"
+  : String(Math.round(n));
 const gb = (n) => (n < 10 ? n.toFixed(2) : n.toFixed(1));
 
 export function TipBox({ active, payload, label }) {
