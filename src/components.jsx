@@ -341,10 +341,11 @@ export function Gauge({ label, total, ceiling, scaleMax, segs }) {
 /* ------------------------------------------------------------------ */
 /*  StackBar — borderless segmented bar with a redline tick           */
 /* ------------------------------------------------------------------ */
-export function StackBar({ label, total, segs, ceiling, scaleMax }) {
+export function StackBar({ label, total, segs, ceiling, scaleMax, alert }) {
   const pct = (v) => `${Math.min(100, (v / scaleMax) * 100)}%`;
   const ceilLeft = `${Math.min(100, (ceiling / scaleMax) * 100)}%`;
   const over = total > ceiling;
+  const flash = alert && over;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
@@ -353,7 +354,7 @@ export function StackBar({ label, total, segs, ceiling, scaleMax }) {
           <AnimatedNumber value={total} fmt={(v) => (v < 10 ? v.toFixed(2) : v.toFixed(1))} /> GB
         </span>
       </div>
-      <div style={{ position: "relative", height: 9, display: "flex", borderRadius: 99, overflow: "hidden", background: C.panel2 }}>
+      <div className={flash ? "prefill-alert" : undefined} style={{ position: "relative", height: 9, display: "flex", borderRadius: 99, overflow: "hidden", background: C.panel2, transformOrigin: "center" }}>
         {segs.map((s, i) => (
           <div key={i} style={{
             width: pct(s.w), height: "100%", background: s.color, flexShrink: 0,
@@ -397,12 +398,9 @@ export function BigReadout({ label, value, unit, ok, sub, accent }) {
 /* ------------------------------------------------------------------ */
 export function SectionTag({ n, children, accent }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-      <span style={{ fontFamily: DISPLAY, fontSize: 11, fontWeight: 700, color: accent || C.faint, letterSpacing: 1 }}>
-        {n}
-      </span>
-      <span style={{ width: 14, height: 1, background: C.line }} />
-      <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, letterSpacing: 2.5, textTransform: "uppercase" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+      <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: C.text, flexShrink: 0 }}>{">"}</span>
+      <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: C.text, letterSpacing: 0.3 }}>
         {children}
       </span>
     </div>
@@ -595,6 +593,28 @@ export function HFSearch({ hf, onApply }) {
             color: C.text,
           }}
         />
+        {/* restrict search to the mlx-community org */}
+        <button
+          type="button"
+          onClick={() => hf.setMlxOnly(!hf.mlxOnly)}
+          title="Only show models from the mlx-community org on HuggingFace"
+          style={{
+            flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
+            fontFamily: MONO, fontSize: 10.5, letterSpacing: 0.5,
+            padding: "3px 8px", borderRadius: 999, cursor: "pointer",
+            border: `1px solid ${hf.mlxOnly ? C.kv : C.line}`,
+            background: hf.mlxOnly ? "rgba(201,148,46,0.16)" : "transparent",
+            color: hf.mlxOnly ? C.kv : C.faint,
+            transition: "border-color 0.15s, background 0.15s, color 0.15s",
+          }}
+        >
+          <span style={{
+            width: 8, height: 8, borderRadius: 2, flexShrink: 0,
+            background: hf.mlxOnly ? C.kv : "transparent",
+            border: `1px solid ${hf.mlxOnly ? C.kv : C.faint}`,
+          }} />
+          mlx only
+        </button>
         {hf.loading && <Spinner size={13} />}
         {(hf.applying || applyingId) && <Spinner size={13} color={C.kv} />}
       </div>

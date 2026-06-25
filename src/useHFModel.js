@@ -68,34 +68,52 @@ export default function useHFModel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [mlxOnly, setMlxOnlyState] = useState(false);
   const debounceRef = useRef(null);
+  // refs so the memoized callbacks always see the latest query / flag
+  const queryRef = useRef("");
+  const mlxRef = useRef(false);
+
+  // actual fetch — shared by typing and by toggling the mlx filter
+  const runSearch = useCallback(async (q, mlx) => {
+    if (q.trim().length < 2) { setResults([]); setLoading(false); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      let url = `${HF_API}/models?search=${encodeURIComponent(q)}&limit=8&filter=text-generation&sort=downloads&direction=-1`;
+      if (mlx) url += "&author=mlx-community"; // restrict to the mlx-community org
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HF API ${res.status}`);
+      const models = await res.json();
+      setResults(models.map(m => ({
+        modelId: m.modelId ?? m.id,
+        downloads: m.downloads,
+        likes: m.likes,
+        tags: m.tags ?? [],
+      })));
+    } catch (e) {
+      setError(e.message);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const search = useCallback((q) => {
     setQuery(q);
+    queryRef.current = q;
     clearTimeout(debounceRef.current);
     if (q.trim().length < 2) { setResults([]); return; }
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const url = `${HF_API}/models?search=${encodeURIComponent(q)}&limit=8&filter=text-generation&sort=downloads&direction=-1`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HF API ${res.status}`);
-        const models = await res.json();
-        setResults(models.map(m => ({
-          modelId: m.modelId ?? m.id,
-          downloads: m.downloads,
-          likes: m.likes,
-          tags: m.tags ?? [],
-        })));
-      } catch (e) {
-        setError(e.message);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 320);
-  }, []);
+    debounceRef.current = setTimeout(() => runSearch(q, mlxRef.current), 320);
+  }, [runSearch]);
+
+  // flipping the mlx filter immediately re-runs the current query
+  const setMlxOnly = useCallback((v) => {
+    setMlxOnlyState(v);
+    mlxRef.current = v;
+    clearTimeout(debounceRef.current);
+    if (queryRef.current.trim().length >= 2) runSearch(queryRef.current, v);
+  }, [runSearch]);
 
   const fetchConfig = useCallback(async (modelId) => {
     setApplying(true);
@@ -124,5 +142,5 @@ export default function useHFModel() {
     }
   }, []);
 
-  return { query, search, results, loading, error, applying, fetchConfig, setResults, setQuery };
+  return { query, search, results, loading, error, applying, fetchConfig, setResults, setQuery, mlxOnly, setMlxOnly };
 }

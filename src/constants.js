@@ -36,28 +36,22 @@ export const KVQUANT = [
 
 export const RAM_OPTIONS = [16, 24, 32, 48, 64, 96, 128];
 
-// Apple Silicon — memory bandwidth (GB/s, published) + GPU fp16 compute
-// (TFLOPS, community estimates; Apple doesn't publish). Drives decode (bandwidth)
-// and prefill (compute) speed.
-export const MAC_SPECS = [
-  { name: "M1",       bw: 68,  tflops: 2.6 },
-  { name: "M1 Pro",   bw: 200, tflops: 5.2 },
-  { name: "M1 Max",   bw: 400, tflops: 10.4 },
-  { name: "M1 Ultra", bw: 800, tflops: 21 },
-  { name: "M2",       bw: 100, tflops: 3.6 },
-  { name: "M2 Pro",   bw: 200, tflops: 6.8 },
-  { name: "M2 Max",   bw: 400, tflops: 13.6 },
-  { name: "M2 Ultra", bw: 800, tflops: 27 },
-  { name: "M3",       bw: 100, tflops: 4.1 },
-  { name: "M3 Pro",   bw: 150, tflops: 7 },
-  { name: "M3 Max",   bw: 400, tflops: 14 },
-  { name: "M3 Ultra", bw: 800, tflops: 28 },
-  { name: "M4",       bw: 120, tflops: 8.5 },
-  { name: "M4 Pro",   bw: 273, tflops: 17 },
-  { name: "M4 Max",   bw: 546, tflops: 34 },
-  { name: "M5",       bw: 120, tflops: 10 },
-  { name: "M5 Pro",   bw: 307, tflops: 20 },
-];
+// Apple Silicon specs. Memory bandwidth (bw, GB/s) is scraped from Wikipedia at
+// build time — see scripts/fetch-mac-specs.mjs / `npm run fetch-specs`. fp16 GPU
+// compute (tflops) is a community estimate; Apple does not publish it. Drives
+// decode (bandwidth-bound) and prefill (compute-bound) speed.
+import macSpecsData from "./macSpecs.json";
+
+export const MAC_SPECS = macSpecsData.chips.map((c) => ({
+  name: c.name,
+  bw: c.bw,
+  tflops: c.tflops,
+}));
+// provenance for the UI caption (source URLs + fetch date)
+export const MAC_SPECS_META = {
+  fetchedAt: macSpecsData.fetchedAt,
+  source: macSpecsData.source,
+};
 export const PREFILL_EFF = 0.35; // fraction of peak FLOPs realized during prefill
 
 // Common context sizes that slider should snap to
@@ -68,8 +62,9 @@ export const CTX_SNAP_POINTS = [
 export const CTX_SNAP_RADIUS = 0.04; // fraction of total range
 
 export const PRESETS = [
-  { name: "Coder-30B-A3B",  note: "current",  params: 30.5, q: 4, layers: 48, kvH: 4,  headDim: 128, active: 3.3  },
-  { name: "Qwen3-8B",       note: "small",    params: 8,    q: 4, layers: 36, kvH: 8,  headDim: 128, active: 8    },
-  { name: "Gemma-3-27B",    note: "dense",    params: 27,   q: 4, layers: 46, kvH: 16, headDim: 256, active: 27   },
-  { name: "Mistral-8x7B",   note: "MoE",      params: 46.7, q: 4, layers: 32, kvH: 8,  headDim: 128, active: 12.9 },
+  { name: "Coder-30B-A3B",   note: "current", params: 30.5, q: 4, layers: 48, kvH: 4,  headDim: 128, active: 3.3  },
+  { name: "Qwen3.6-35B-A3B", note: "MoE",     params: 35,   q: 4, layers: 40, kvH: 2,  headDim: 256, active: 3    },
+  { name: "Qwen3-8B",        note: "small",   params: 8,    q: 4, layers: 36, kvH: 8,  headDim: 128, active: 8    },
+  { name: "Gemma-3-27B",     note: "dense",   params: 27,   q: 4, layers: 46, kvH: 16, headDim: 256, active: 27   },
+  { name: "Mistral-8x7B",    note: "MoE",     params: 46.7, q: 4, layers: 32, kvH: 8,  headDim: 128, active: 12.9 },
 ];
