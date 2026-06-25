@@ -69,6 +69,13 @@
       .explain-backdrop { animation: explainFade 0.16s ease-out both; }
       .explain-card { animation: explainPop 0.26s cubic-bezier(0.22,1,0.36,1) both; }
 
+      /* footprint expand-to-full-width: grows in, pushing the columns down */
+      @keyframes bandGrow {
+        from { max-height: 0; opacity: 0; transform: translateY(-8px); }
+        to   { max-height: 860px; opacity: 1; transform: translateY(0); }
+      }
+      .expand-band { overflow: hidden; animation: bandGrow 0.46s cubic-bezier(0.22,1,0.36,1) both; }
+
       /* snap pulse */
       @keyframes snapPulse {
         0%   { box-shadow: 0 0 0 0 rgba(201,148,46,0.6); }

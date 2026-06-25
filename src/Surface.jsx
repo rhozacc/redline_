@@ -211,7 +211,7 @@ export default function Surface(props) {
   const slopeK = props.depthAxis === "quant" ? props.params / 8 : props.bpw / 8;
   const over = cur * slopeK + props.overhead + props.kvPerTokGB * props.context + props.scratch > props.ceiling;
   return (
-    <div style={{ position: "relative", width: "100%", height: 380, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.line}`, background: "#070A0E" }}>
+    <div style={{ position: "relative", width: "100%", height: props.height || 380, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.line}`, background: "#070A0E" }}>
       <Canvas camera={{ position: [11, 9.5, 12.5], fov: 36 }} dpr={[1, 2]} gl={{ antialias: true }}>
         <ambientLight intensity={0.75} />
         <directionalLight position={[6, 13, 8]} intensity={0.95} />

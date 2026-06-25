@@ -65,8 +65,9 @@ export default function App() {
   const [prefillEff,setPrefillEff] = useState(PREFILL_EFF);
   const [activePreset, setActivePreset] = useState("Coder-30B-A3B");
   const [hfApplied, setHfApplied] = useState(null);
-  const [viz3d,    setViz3d]    = useState(true);
+  const [vizMode,  setVizMode]  = useState("surface"); // '2d' | 'surface'
   const [depthAxis, setDepthAxis] = useState("params");
+  const [expanded, setExpanded] = useState(false);
 
   const hf = useHFModel();
 
@@ -198,6 +199,115 @@ export default function App() {
     transition: "border-color 0.15s, background 0.15s, color 0.15s",
   });
 
+  /* footprint viz (2D line / 3D surface) — reused in-column or full-width when expanded */
+  const footprint = (big) => (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <SectionTag n="06" accent={C.kv}>
+          {vizMode === "surface" ? "Footprint surface" : "Footprint vs context"}
+        </SectionTag>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: -14 }}>
+          {vizMode === "surface" && (
+            <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
+              {[["params", "size"], ["quant", "quant"]].map(([mode, lbl]) => {
+                const on = mode === depthAxis;
+                return (
+                  <button key={mode} onClick={() => setDepthAxis(mode)}
+                    style={{
+                      fontFamily: DISPLAY, fontWeight: 600, fontSize: 10.5, letterSpacing: 0.5,
+                      padding: "4px 10px", border: "none", cursor: "pointer",
+                      background: on ? C.weights : "transparent",
+                      color: on ? "#fff" : C.muted, transition: "background 0.15s, color 0.15s",
+                    }}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
+            {[["2d", "2D"], ["surface", "3D"]].map(([mode, lbl]) => {
+              const on = mode === vizMode;
+              return (
+                <button key={mode} onClick={() => setVizMode(mode)}
+                  style={{
+                    fontFamily: DISPLAY, fontWeight: 600, fontSize: 10.5, letterSpacing: 1,
+                    padding: "4px 11px", border: "none", cursor: "pointer",
+                    background: on ? C.kv : "transparent",
+                    color: on ? "#1a1205" : C.muted, transition: "background 0.15s, color 0.15s",
+                  }}>
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => setExpanded((e) => !e)} title={big ? "Collapse" : "Expand to full width"}
+            style={{
+              width: 28, height: 26, borderRadius: 6, cursor: "pointer", fontSize: 13,
+              border: `1px solid ${big ? C.kv : C.line}`, background: big ? "rgba(201,148,46,0.16)" : "transparent",
+              color: big ? C.kv : C.muted, transition: "border-color 0.15s, color 0.15s, background 0.15s",
+            }}>
+            {big ? "⤡" : "⤢"}
+          </button>
+        </div>
+      </div>
+
+      {vizMode === "surface" ? (
+        <Surface
+          bpw={bpw} overhead={overhead} scratch={scratch}
+          kvPerTokGB={m.kvPerTokGB} ceiling={ceiling}
+          context={context} params={params} depthAxis={depthAxis}
+          height={big ? 560 : 380}
+        />
+      ) : (
+        <div style={{ width: "100%", height: big ? 400 : 230 }}>
+          <ResponsiveContainer>
+            <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 2 }}>
+              <CartesianGrid stroke={C.line} strokeDasharray="2 4" vertical={false} />
+              <XAxis dataKey="ctx" type="number" domain={[0, "dataMax"]} tickFormatter={ktok}
+                stroke={C.faint} tick={{ fontSize: 10, fontFamily: MONO, fill: C.muted }} />
+              <YAxis domain={[0, yTop]} stroke={C.faint}
+                tick={{ fontSize: 10, fontFamily: MONO, fill: C.muted }} tickFormatter={(v) => v + ""} />
+              <ReferenceArea y1={ceiling} y2={yTop} fill={C.oom} fillOpacity={0.07} />
+              <Tooltip content={<TipBox />} />
+              <Area type="monotone" dataKey="prefill" stroke={C.scratch} strokeWidth={1.5}
+                fill={C.scratch} fillOpacity={0.10} name="prefill peak" dot={false} />
+              <Line type="monotone" dataKey="decode" stroke={C.kv} strokeWidth={1.8} dot={false} name="decode" />
+              <ReferenceLine y={ceiling} stroke={C.oom} strokeWidth={1.4} strokeDasharray="5 3"
+                label={{ value: "redline", fill: C.oom, fontSize: 10, fontFamily: MONO, position: "insideTopRight" }} />
+              <ReferenceLine y={ram} stroke={C.faint} strokeDasharray="2 4"
+                label={{ value: ram + " GB", fill: C.faint, fontSize: 9.5, fontFamily: MONO, position: "insideBottomRight" }} />
+              <ReferenceLine x={context} stroke={C.text} strokeOpacity={0.55} strokeWidth={1}
+                label={{ value: "now", fill: C.text, fontSize: 10, fontFamily: MONO, position: "top" }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>
+        {vizMode === "surface"
+          ? (depthAxis === "quant"
+              ? "Height is peak memory across every quantization × context. The red frontier traces where your build crosses the redline; the marker is where you sit now."
+              : "Height is peak memory across every model size × context. The red frontier traces where your build crosses the redline; the marker is where you sit now.")
+          : "Decode footprint clears the ceiling long before the prefill peak does — which is exactly why a model can chat fine at a big context, then die the moment you hand it a long prompt."}
+      </p>
+    </>
+  );
+
+  /* feasibility: green = prefill fits · amber = decode-only · red = won't load */
+  const fitAt = (sizeB, ctx) => {
+    const weights = (sizeB * bpw) / 8;
+    const total = weights + overhead + m.kvPerTokGB * ctx;
+    if (total + scratch <= ceiling) return "ok";
+    if (total <= ceiling) return "warn";
+    return "oom";
+  };
+  const REPORT_SIZES = [3, 7, 13, 30, 70, 120];
+  const REPORT_CTX = [4096, 16384, 32768, 65536, 131072, 262144, 1048576];
+  const kvLabel = kvBytes >= 2 ? "fp16" : kvBytes >= 1 ? "8-bit" : "4-bit";
+  const nearIdx = (arr, v) => arr.reduce((b, x, i) => (Math.abs(x - v) < Math.abs(arr[b] - v) ? i : b), 0);
+  const curRow = nearIdx(REPORT_SIZES, params);
+  const curCol = nearIdx(REPORT_CTX, context);
+
   /* ================================================================ */
   return (
     <ExplainerProvider>
@@ -292,6 +402,13 @@ export default function App() {
 
         {/* ════════ DATASHEET GRID ════════ */}
         <div style={{ marginTop: 30, display: "grid", gridTemplateColumns: "minmax(0,0.86fr) minmax(0,1.14fr)", gap: 0 }}>
+
+          {/* full-width footprint when expanded — pushes the columns below */}
+          {expanded && (
+            <div className="expand-band" style={{ gridColumn: "1 / -1", marginBottom: 30, paddingBottom: 26, borderBottom: `1px solid ${C.line}` }}>
+              {footprint(true)}
+            </div>
+          )}
 
           {/* ─────── LEFT · INPUTS ─────── */}
           <div className="reveal" style={{ animationDelay: "0.18s", minWidth: 0, paddingRight: 40 }}>
@@ -456,86 +573,9 @@ export default function App() {
           {/* ─────── RIGHT · OUTPUT ─────── */}
           <div className="reveal" style={{ animationDelay: "0.24s", minWidth: 0, borderLeft: `1px solid ${C.line}`, paddingLeft: 44 }}>
 
-            {/* ── 06 FOOTPRINT — 2D line or 3D surface ── */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <SectionTag n="06" accent={C.kv}>{viz3d ? "Footprint surface" : "Footprint vs context"}</SectionTag>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: -14 }}>
-                {viz3d && (
-                  <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
-                    {[["params", "size"], ["quant", "quant"]].map(([mode, lbl]) => {
-                      const on = mode === depthAxis;
-                      return (
-                        <button key={mode} onClick={() => setDepthAxis(mode)}
-                          style={{
-                            fontFamily: DISPLAY, fontWeight: 600, fontSize: 10.5, letterSpacing: 0.5,
-                            padding: "4px 10px", border: "none", cursor: "pointer",
-                            background: on ? C.weights : "transparent",
-                            color: on ? "#fff" : C.muted, transition: "background 0.15s, color 0.15s",
-                          }}>
-                          {lbl}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
-                  {["2D", "3D"].map((mode) => {
-                    const on = (mode === "3D") === viz3d;
-                    return (
-                      <button key={mode} onClick={() => setViz3d(mode === "3D")}
-                        style={{
-                          fontFamily: DISPLAY, fontWeight: 600, fontSize: 10.5, letterSpacing: 1,
-                          padding: "4px 11px", border: "none", cursor: "pointer",
-                          background: on ? C.kv : "transparent",
-                          color: on ? "#1a1205" : C.muted, transition: "background 0.15s, color 0.15s",
-                        }}>
-                        {mode}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            {!expanded && footprint(false)}
 
-            {viz3d ? (
-              <Surface
-                bpw={bpw} overhead={overhead} scratch={scratch}
-                kvPerTokGB={m.kvPerTokGB} ceiling={ceiling}
-                context={context} params={params} depthAxis={depthAxis}
-              />
-            ) : (
-            <div style={{ width: "100%", height: 230 }}>
-              <ResponsiveContainer>
-                <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 2 }}>
-                  <CartesianGrid stroke={C.line} strokeDasharray="2 4" vertical={false} />
-                  <XAxis dataKey="ctx" type="number" domain={[0, "dataMax"]} tickFormatter={ktok}
-                    stroke={C.faint} tick={{ fontSize: 10, fontFamily: MONO, fill: C.muted }} />
-                  <YAxis domain={[0, yTop]} stroke={C.faint}
-                    tick={{ fontSize: 10, fontFamily: MONO, fill: C.muted }} tickFormatter={(v) => v + ""} />
-                  <ReferenceArea y1={ceiling} y2={yTop} fill={C.oom} fillOpacity={0.07} />
-                  <Tooltip content={<TipBox />} />
-                  <Area type="monotone" dataKey="prefill" stroke={C.scratch} strokeWidth={1.5}
-                    fill={C.scratch} fillOpacity={0.10} name="prefill peak" dot={false} />
-                  <Line type="monotone" dataKey="decode" stroke={C.kv} strokeWidth={1.8} dot={false} name="decode" />
-                  <ReferenceLine y={ceiling} stroke={C.oom} strokeWidth={1.4} strokeDasharray="5 3"
-                    label={{ value: "redline", fill: C.oom, fontSize: 10, fontFamily: MONO, position: "insideTopRight" }} />
-                  <ReferenceLine y={ram} stroke={C.faint} strokeDasharray="2 4"
-                    label={{ value: ram + " GB", fill: C.faint, fontSize: 9.5, fontFamily: MONO, position: "insideBottomRight" }} />
-                  <ReferenceLine x={context} stroke={C.text} strokeOpacity={0.55} strokeWidth={1}
-                    label={{ value: "now", fill: C.text, fontSize: 10, fontFamily: MONO, position: "top" }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-            )}
-            <p style={{ fontSize: 11, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>
-              {viz3d
-                ? (depthAxis === "quant"
-                    ? "Height is peak memory across every quantization × context. The red frontier traces where your build crosses the redline; the marker is where you sit now."
-                    : "Height is peak memory across every model size × context. The red frontier traces where your build crosses the redline; the marker is where you sit now.")
-                : "Decode footprint clears the ceiling long before the prefill peak does — which is exactly why a model can chat fine at a big context, then die the moment you hand it a long prompt."}
-            </p>
-
-            <Rule m={26} />
+            {!expanded && <Rule m={26} />}
 
             {/* ── 07 MEMORY PRESSURE ── */}
             <SectionTag n="07" accent={stateColor}>Memory pressure <InfoDot k="prefilldecode" /></SectionTag>
@@ -627,6 +667,61 @@ export default function App() {
               <span style={{ color: C.kv }}>Decode</span> slows as the KV cache grows (more bytes to stream per token);{" "}
               <span style={{ color: C.scratch }}>prefill</span> time climbs with context (attention is quadratic). Rough estimates — validate on-device.
             </p>
+          </div>
+        </div>
+
+        {/* ════════ FEASIBILITY REPORT ════════ */}
+        <div className="reveal" style={{ animationDelay: "0.3s", marginTop: 40 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <SectionTag n="10" accent={C.ok}>What fits — common builds</SectionTag>
+            <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.faint, marginTop: -14 }}>
+              at <span style={{ color: C.weights }}>{q}-bit</span> · <span style={{ color: C.kv }}>{kvLabel}</span> KV · <span style={{ color: C.ceiling }}>{gb(ceiling)} GB</span> ceiling
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: `52px repeat(${REPORT_CTX.length}, 1fr)`, gap: 6, alignItems: "center" }}>
+            {/* header row */}
+            <div />
+            {REPORT_CTX.map((c, j) => (
+              <div key={c} style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: j === curCol ? C.text : C.faint }}>
+                {ktok(c)}
+              </div>
+            ))}
+            {/* model rows */}
+            {REPORT_SIZES.map((s, i) => (
+              <React.Fragment key={s}>
+                <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 13, color: i === curRow ? C.text : C.muted, textAlign: "right", paddingRight: 6 }}>
+                  {s}B
+                </div>
+                {REPORT_CTX.map((c, j) => {
+                  const f = fitAt(s, c);
+                  const col = f === "ok" ? C.ok : f === "warn" ? C.warn : C.oom;
+                  const here = i === curRow && j === curCol;
+                  return (
+                    <div key={c} title={f === "ok" ? "fits" : f === "warn" ? "decode only — long prompts overflow" : "won't load"}
+                      style={{
+                        height: 28, borderRadius: 5, background: `${col}26`,
+                        border: here ? `1.5px solid ${C.text}` : `1px solid ${col}55`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontFamily: MONO, fontSize: 11, color: col,
+                        boxShadow: here ? `0 0 10px ${col}66` : "none",
+                      }}>
+                      {f === "ok" ? "✓" : f === "warn" ? "~" : "✕"}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginTop: 14, fontFamily: MONO, fontSize: 11 }}>
+            {[["✓", C.ok, "fits — prompt + reply"], ["~", C.warn, "decode only — long prompts overflow"], ["✕", C.oom, "won't load"]].map(([g, col, lbl]) => (
+              <span key={lbl} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 16, height: 16, borderRadius: 4, background: `${col}26`, border: `1px solid ${col}55`, color: col, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{g}</span>
+                <span style={{ color: C.muted }}>{lbl}</span>
+              </span>
+            ))}
+            <span style={{ color: C.faint }}>· outlined cell = your current build</span>
           </div>
         </div>
 
