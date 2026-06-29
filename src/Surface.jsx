@@ -63,7 +63,6 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
   const geom = useMemo(() => {
     const positions = new Float32Array(NX * NY * 3);
     const colors = new Float32Array(NX * NY * 3);
-    const localPlaneY = (Math.min(ceiling, ceiling * 2.4) / (ceiling * 2.4)) * H;
     for (let j = 0; j < NY; j++) {
       const tz = j / (NY - 1);
       const d = DMIN + (DMAX - DMIN) * tz;
@@ -73,8 +72,7 @@ function SurfaceMesh({ bpw, overhead, scratch, kvPerTokGB, ceiling, context, par
         const g = mem(ctx, d);
         const idx = j * NX + i;
         positions[idx * 3] = -W / 2 + W * tx;
-        // cap: over-ceiling vertices are flattened to planeY
-        positions[idx * 3 + 1] = g > ceiling ? localPlaneY : (Math.min(g, zClamp) / zClamp) * H;
+        positions[idx * 3 + 1] = (Math.min(g, zClamp) / zClamp) * H;
         positions[idx * 3 + 2] = -D / 2 + D * tz;
         // vivid red for over-ceiling, ramp for under
         const c = g > ceiling ? [0.92, 0.15, 0.15] : ramp(g / ceiling);
