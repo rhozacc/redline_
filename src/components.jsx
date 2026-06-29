@@ -395,13 +395,93 @@ export function BigReadout({ label, value, unit, ok, sub, accent }) {
 
 /* ------------------------------------------------------------------ */
 /*  SectionTag — numbered datasheet section header                    */
+/*  glitch=true adds the RGB-split animation (same technique as Title) */
 /* ------------------------------------------------------------------ */
-export function SectionTag({ n, children, accent }) {
+export function SectionTag({ n, children, accent, glitch, label }) {
+  const redRef = useRef(null);
+  const cyanRef = useRef(null);
+
+  useEffect(() => {
+    if (!glitch) return;
+    const red = redRef.current;
+    const cyan = cyanRef.current;
+    if (!red || !cyan) return;
+
+    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      red.style.cssText += ";opacity:.4;transform:translate(-1.5px,0)";
+      cyan.style.cssText += ";opacity:.4;transform:translate(1.5px,0)";
+      return;
+    }
+
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const slice = () => {
+      const top = rnd(0, 78), bot = rnd(0, 96 - top);
+      return `inset(${top.toFixed(1)}% 0 ${bot.toFixed(1)}% 0)`;
+    };
+    const clean = (el) => { el.style.opacity = "0"; el.style.transform = "none"; el.style.clipPath = "none"; };
+    const chaos = (el, amp) => {
+      el.style.opacity = Math.random() < 0.82 ? "1" : "0";
+      el.style.transform = `translate(${rnd(-amp, amp).toFixed(1)}px, ${rnd(-2, 2).toFixed(1)}px)`;
+      el.style.clipPath = slice();
+    };
+
+    let burstEnd = 0, frameTimer = null, nextTimer = null, raf = null, alive = true;
+
+    const tick = () => {
+      if (!alive) return;
+      if (performance.now() < burstEnd) {
+        const amp = rnd(3, 8);
+        chaos(red, amp); chaos(cyan, amp);
+        frameTimer = setTimeout(() => { raf = requestAnimationFrame(tick); }, rnd(16, 50));
+      } else { clean(red); clean(cyan); }
+    };
+
+    const schedule = () => {
+      if (!alive) return;
+      nextTimer = setTimeout(() => {
+        const dur = Math.random() < 0.34 ? rnd(600, 1200) : rnd(200, 480);
+        burstEnd = performance.now() + dur;
+        raf = requestAnimationFrame(tick);
+        schedule();
+      }, rnd(900, 1900));
+    };
+
+    // fire immediately on mount so the alarm is obvious right away
+    burstEnd = performance.now() + rnd(250, 500);
+    raf = requestAnimationFrame(tick);
+    schedule();
+
+    return () => {
+      alive = false;
+      clearTimeout(nextTimer); clearTimeout(frameTimer);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [glitch]);
+
+  // text used for glitch overlay layers — plain string only (no React nodes)
+  const glitchText = label ?? (typeof children === "string" ? children : null);
+
+  const layerStyle = {
+    position: "absolute", left: 0, top: 0,
+    fontFamily: DISPLAY, fontSize: 21, fontWeight: 700, letterSpacing: 0.3,
+    opacity: 0, mixBlendMode: "screen",
+    pointerEvents: "none", whiteSpace: "nowrap",
+    willChange: "transform, clip-path, opacity",
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-      <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: C.text, flexShrink: 0 }}>{">"}</span>
-      <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: C.text, letterSpacing: 0.3 }}>
-        {children}
+      <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 700, color: C.text, letterSpacing: 0.3 }}>
+          {children}
+        </span>
+        {glitch && glitchText && (
+          <>
+            <span ref={redRef} aria-hidden="true" style={{ ...layerStyle, color: "#D23B3B" }}>{glitchText}</span>
+            <span ref={cyanRef} aria-hidden="true" style={{ ...layerStyle, color: "#2AD4D4" }}>{glitchText}</span>
+          </>
+        )}
       </span>
     </div>
   );
