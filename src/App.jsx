@@ -624,7 +624,7 @@ export default function App() {
             {!expanded && <Rule m={26} />}
 
             {/* ── 07 MEMORY PRESSURE ── */}
-            <SectionTag n="07" accent={stateColor}>Memory pressure <InfoDot k="prefilldecode" /></SectionTag>
+            <SectionTag n="07" accent={stateColor} glitch={m.prefill > ceiling} label="Memory pressure">Memory pressure <InfoDot k="prefilldecode" /></SectionTag>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
               <StackBar
                 label="resident · decode" total={m.decode} ceiling={ceiling} scaleMax={axisMaxScale}
@@ -645,7 +645,7 @@ export default function App() {
             <Rule m={26} />
 
             {/* ── 08 LIMITS ── */}
-            <SectionTag n="08" accent={C.faint}>Limits</SectionTag>
+            <SectionTag n="08" accent={C.faint} glitch={m.prefill > ceiling}>Limits</SectionTag>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "22px 18px" }}>
               <BigReadout
                 label="Decode · resident" value={gb(m.decode)} unit="GB" ok={m.fitsDecode}
